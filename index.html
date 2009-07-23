@@ -95,12 +95,12 @@
           <th>destroy</th>
         </tr>
         <tr><th>EC2</th>        <td>y</td><td> </td><td> </td><td> </td></tr>
-        <tr><th>EC2-EU</th>     <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>EC2-EU</th>     <td> </td><td> </td><td> </td><td> </td></tr>
         <tr><th>Slicehost</th>  <td>y</td><td> </td><td> </td><td> </td></tr>
         <tr><th>Rackspace</th>  <td>y</td><td> </td><td> </td><td> </td></tr>
         <tr><th>linode</th>     <td> </td><td> </td><td> </td><td> </td></tr>
         <tr><th>vps.net</th>    <td>y</td><td> </td><td> </td><td> </td></tr>
-        <tr><th>gogrid</th>     <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>gogrid</th>     <td> </td><td> </td><td> </td><td> </td></tr>
         <tr><th>flexiscale</th> <td> </td><td> </td><td> </td><td> </td></tr>
       </table>
 
@@ -121,6 +121,11 @@ for provider in [ ec2, slicehost, rackspace ]:
 # all_servers now has a list of node objects
 # from ec2, slicehost, and rackspace
 print all_servers</code>
+      <h2>installation</h2>
+      <p>Currently libcloud is only available via git. To pull the repository please run:</p>
+      <code>git clone git://github.com/cloudkick/libcloud.git</code>
+      <p>To install, cd into the libcloud directory, then run:</p>
+      <code>python setup.py install</code>
     </div><!--/#main-->
     <div id="footer" class="span-24">
     </div><!--/#footer-->
