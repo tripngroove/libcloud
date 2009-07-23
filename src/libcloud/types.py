@@ -3,7 +3,9 @@ class Provider(object):
   DUMMY = 0 # Example provider
   EC2 = 1 # Amazon AWS
   EC2_EU = 2 # Amazon AWS EU
-  GOGRID = 3 # GoGrid 
+  RACKSPACE = 3 # Cloud Servers
+  SLICEHOST = 4 # Cloud Servers
+  GOGRID = 5 # GoGrid 
 
 class NodeState(object):
   """ Standard states for a node """
