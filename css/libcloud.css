@@ -40,3 +40,5 @@ pre, code { font-family:"Courier New", "Courier", "Lucida Console", fixed-width;
 
 .byline { color:#007fbb; font-size:10px;}
 .center { text-align:center;}
+
+pre, code { margin-bottom: 12px; }
