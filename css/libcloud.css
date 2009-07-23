@@ -1,0 +1,42 @@
+/*  color 100    80     50     20
+ *  aqua  007bff 3395ff 80bdff cce5ff
+ *  melon ff5050 ff7373 ffa7a7 ffdcdc
+ */
+* { margin:0; }
+html {}
+body { border-top:10px solid #007bff; border-bottom:10px solid #007bff; }
+#wrapper { width:800px; margin:0 auto; }
+
+a {color:inherit;}
+a:hover { color:#ff5050;}
+
+#header { padding:15px 0 0; margin:0 0 5px 0; }
+#banner { padding:5px 0; margin:0 0 5px 0; border-top:1px solid #ddd; border-bottom:1px solid #ddd; }
+#banner h2 { margin:0; color:#ff5050; line-height:30px; }
+#feature { }
+#feature blockquote { margin:0; padding:10px; font-size:11px;}
+#sidebar {}
+#main {}
+#footer { margin:20px 0 10px; border-top:1px solid #ddd; padding:5px 0;}
+
+h1 { color:#80bdff; font-size:60px; padding-left:90px; background:url(../images/libcloud_logo.png) left no-repeat; }
+h1 span { color:#333; font-size:36px; }
+h2 { color:#007bff;}
+#sidebar h2 { padding-left:10px; margin:0; cursor:pointer; background:#cce5ff; border-bottom:1px solid #fff; }
+#sidebar h2:hover { background:#80bdff;}
+#sidebar .accordion { background:#f5f5f5; padding:10px; }
+#sidebar h2:focus, #sidebar h2.ui-state-active { outline:none; background:#80bdff; color:#fff;}
+#sidebar .accordion { }
+#sidebar h3 { color:#ff5050; margin-bottom:5px; }
+#sidebar h3 a:hover { color:#80bdff; }
+
+pre, code { font-family:"Courier New", "Courier", "Lucida Console", fixed-width; padding:10px; background:#f5f5f5; border:1px solid #ddd; display:block; white-space:pre; }
+
+#support-table td, #support-table th { width:20%; border-right:1px solid #fff; border-bottom:1px solid #ddd;}
+#support-table th { background:#f5f5f5; }
+#support-table td { }
+#support-table td.supported { background:#80bdff;}
+#support-table td.unsupported { background:#ffa7a7;}
+
+.byline { color:#007fbb; font-size:10px;}
+.center { text-align:center;}

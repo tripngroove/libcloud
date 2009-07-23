@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <title>libcloud python library - a unified interface cloud server providers</title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+  <meta name="description" content="libcloud is a pure python client library for interacting with many of the popular cloud server providers. It was created to make it easy for developers to build products that work between any of the services that it supports.">
+  <meta name="keywords" content="libcloud, cloud, cloud servers, cloud management, cloud interoperability, cloud provider, cloud interface, cloud computing, cloud api, cloud standard">
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.min.js" type="text/javascript"></script>
+  <script src="js/chili/jquery.chili-2.2.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    ChiliBook.recipeFolder = "js/chili/";
+  </script>
+  <script src="js/libcloud.js" type="text/javascript"></script>
+  <link rel="stylesheet" href="css/screen.css" type="text/css">
+  <link rel="stylesheet" href="css/libcloud.css" type="text/css">
+  <link rel="icon" type="image/png" href="images/favicon.png"/>
+</head>
+<body>
+  <div class="container">
+    <div id="header" class="span-24 last">
+      <h1>libcloud <span>a unified interface to the cloud</span></h1>
+    </div><!--/#header-->
+    <div id="banner" class="span-24 last">
+      <h2>
+        libcloud is standard client library to cloud providers, written in pure python
+      </h2>
+    </div><!--/#banner-->
+    <div id="feature" class="container">
+      <div class="span-8">
+        <blockquote>
+          &#8220;Libcloud will make life easier for our customers. 
+          <br>We appreciate and support this standardization tool.&#8221;
+          <br>
+          <span class="byline">
+            - Matt Tanase, <a href="http://www.slicehost.com">Slicehost</a>, Founder
+          </span>
+        </blockquote>
+      </div>
+      <div class="span-8">
+        <blockquote>
+          &#8220;I'm excited to see the development of projects, like libcloud, that help make the lives of the cloud computing community easier by offering a standardized way to communicate with their provider of choice.&#8221;
+          <br>
+          <span class="byline">
+            - Bret Piatt, <a href="http://www.rackspace.com">Rackspace</a>, Technical Alliance Manager
+          </span>
+        </blockquote>
+      </div>
+      <div class="span-8 last">
+        <blockquote>
+          &#8220;We believe in an open cloud and are thrilled to see libcloud push the movement forward.&#8221;
+          <br>
+          <span class="byline">
+            - Paul Lancaster, <a href="http://www.gogrid.com">GoGrid</a>, Business Development Manager
+          </span>
+        </blockquote>
+      </div>
+    </div><!--/#feature-->
+    <hr>
+    <div id="sidebar" class="span-8 border">
+      <!--everything after each h2 needs to be in containing div for accordion to work-->
+      <h2>code</h2>
+      <div class="accordion">
+        <h3 class="center">
+          <a href="http://github.com/cloudkick/libcloud" target="_blank">
+            libcloud is hosted on github!
+          </a>
+        </h3>
+        If you are a server provider, and would like to be included in libcloud, please consider contributing.
+      </div>
+      <h2>mailing list</h2>
+      <div class="accordion">
+        <h3 class="center">
+          <a href="mailto:libcloud@googlegroups.com" target="_blank">
+            libcloud@googlegroups.com
+          </a>
+        </h3>
+        We discuss development and on our mailing list. Sign up over on <a href="http://groups.google.com/group/libcloud" target="_blank">Google Groups</a>.
+      </div>
+      <h2>about</h2>
+      <div class="accordion">
+        <p>libcloud is a pure python client library for interacting with many of the popular cloud server providers. It was created to make it easy for developers to build products that work between any of the services that it supports.</p>
+        <p>libcloud was originally created by the folks over at <a href="https://www.cloudkick.com/">Cloudkick</a>, but has since grown into an independent free software project licensed under the Apache License (2.0).</p>
+        <p>The libcloud team can be contacted at <a href="mailto:libcloud@googlegroups.com">libcloud@googlegroups.com</a>.</p>
+      </div>
+    </div><!--/#sidebar-->
+    <div id="main" class="span-16 last">
+      <h2>current support</h2>
+      <table id="support-table" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <th>provider</th>
+          <th>list</th>
+          <th>reboot</th>
+          <th>create</th>
+          <th>destroy</th>
+        </tr>
+        <tr><th>EC2</th>        <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>EC2-EU</th>     <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>Slicehost</th>  <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>Rackspace</th>  <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>linode</th>     <td> </td><td> </td><td> </td><td> </td></tr>
+        <tr><th>vps.net</th>    <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>gogrid</th>     <td>y</td><td> </td><td> </td><td> </td></tr>
+        <tr><th>flexiscale</th> <td> </td><td> </td><td> </td><td> </td></tr>
+      </table>
+
+      <h2>example</h2>
+      <p>The following example will list servers across Amazon EC2, Slicehost, and Rackspace Cloud Servers using the same API call. The servers will be represented in a standard Node object</p>
+      <code class="python">from libcloud.providers import connect
+from libcloud.types import Provider
+ 
+ec2 = connect(Provider.EC2, 'access key id', 'secret key')
+slicehost = connect(Provider.SLICEHOST, 'api key')
+rackspace = connect(Provider.RACKSPACE, 'username', 'api key')
+ 
+all_servers = []
+for provider in [ ec2, slicehost, rackspace ]:
+  nodes = provider.list_nodes() # this is the actual API call
+  all_servers.extend(nodes)
+ 
+# all_servers now has a list of node objects
+# from ec2, slicehost, and rackspace
+print all_servers</code>
+    </div><!--/#main-->
+    <div id="footer" class="span-24">
+    </div><!--/#footer-->
+  </div>
+</body>
+</html>
