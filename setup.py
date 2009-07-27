@@ -3,12 +3,15 @@ from distutils.core import Command
 from unittest import TextTestRunner, TestLoader
 from glob import glob
 from os.path import splitext, basename, join as pjoin
-import os
+import os, sys
 
 class TestCommand(Command):
   user_options = [ ]
 
   def initialize_options(self):
+    THIS_DIR = os.path.abspath(os.path.split(__file__)[0])
+    sys.path.insert(0, THIS_DIR)
+    sys.path.insert(0, pjoin(THIS_DIR, 'test'))
     self._dir = os.getcwd()
 
   def finalize_options(self):
