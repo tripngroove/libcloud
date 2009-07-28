@@ -12,6 +12,9 @@ class TestCommand(Command):
   user_options = [ ]
 
   def initialize_options(self):
+    THIS_DIR = os.path.abspath(os.path.split(__file__)[0])
+    sys.path.insert(0, THIS_DIR)
+    sys.path.insert(0, pjoin(THIS_DIR, 'test'))
     self._dir = os.getcwd()
 
   def finalize_options(self):
@@ -35,7 +38,7 @@ setup(name = 'libcloud',
     author = 'Alex Polvi',
     author_email = 'polvi@cloudkick.com',
     packages = ['libcloud', 'libcloud.drivers'],
-    package_dir = {'libcloud' : 'py/libcloud', 'libcloud.drivers': 'py/libcloud/drivers' },
+    package_dir = {'libcloud' : 'libcloud', 'libcloud.drivers': 'libcloud/drivers' },
     license = 'Apache License (2.0)',
     url = 'http://github.com/cloudkick/libcloud',
     cmdclass = { 'test': TestCommand }
