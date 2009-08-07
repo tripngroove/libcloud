@@ -96,32 +96,34 @@
         </tr>
         <tr><th><a href="http://aws.amazon.com/" title="EC2" target="_blank">EC2</a></th>                     <td>y</td><td>y</td><td> </td><td>y</td></tr>
         <tr><th><a href="http://aws.amazon.com/" title="EC2-EU" target="_blank">EC2-EU</a></th>               <td>y</td><td>y</td><td> </td><td>y</td></tr>
-        <tr><th><a href="http://www.slicehost.com/" title="slicehost" target="_blank">Slicehost</a></th>      <td>y</td><td>y</td><td> </td><td>y</td></tr>
+        <tr><th><a href="http://www.slicehost.com/" title="slicehost" target="_blank">Slicehost</a></th>      <td>y</td><td>y</td><td>y</td><td>y</td></tr>
         <tr><th><a href="http://www.rackspacecloud.com" title="rackspace" target="_blank">Rackspace</a></th>  <td>y</td><td>y</td><td> </td><td>y</td></tr>
         <tr><th><a href="http://www.linode.com/" title="linode" target="_blank">Linode</a></th>               <td> </td><td> </td><td> </td><td> </td></tr>
-        <tr><th><a href="http://vps.net/" title="vps.net" target="_blank">VPS.net</a></th>                    <td>y</td><td> </td><td> </td><td> </td></tr>
-        <tr><th><a href="http://www.gogrid.com/" title="gogrid" target="_blank">GoGrid</a></th>               <td>y</td><td>y</td><td> </td><td>y</td></tr>
+        <tr><th><a href="http://vps.net/" title="vps.net" target="_blank">VPS.net</a></th>                    <td> </td><td> </td><td> </td><td> </td></tr>
+        <tr><th><a href="http://www.gogrid.com/" title="gogrid" target="_blank">GoGrid</a></th>               <td> </td><td> </td><td> </td><td> </td></tr>
         <tr><th><a href="http://www.flexiscale.com/" title="flexiscale" target="_blank">flexiscale</a></th>   <td> </td><td> </td><td> </td><td> </td></tr>
         <tr><th><a href="http://www.eucalyptus.com/" title="Eucalyptus" target="_blank">Eucalyptus</a></th>   <td> </td><td> </td><td> </td><td> </td></tr>
       </table>
 
       <h2>example</h2>
       <p>The following example will list servers across Amazon EC2, Slicehost, and Rackspace Cloud Servers using the same API call. The servers will be represented in a standard Node object</p>
-      <code class="python">from libcloud.providers import connect
-from libcloud.types import Provider
- 
-ec2 = connect(Provider.EC2, 'access key id', 'secret key')
-slicehost = connect(Provider.SLICEHOST, 'api key')
-rackspace = connect(Provider.RACKSPACE, 'username', 'api key')
- 
-all_servers = []
-for provider in [ ec2, slicehost, rackspace ]:
-  nodes = provider.list_nodes() # this is the actual API call
-  all_servers.extend(nodes)
- 
-# all_servers now has a list of node objects
-# from ec2, slicehost, and rackspace
-print all_servers</code>
+      <code class="python">from libcloud.drivers import EC2, Slicehost
+
+ec2 = EC2('access key id', 'secret key')
+slicehost = Slicehost('api key')
+
+all_nodes = []
+for provider in [ ec2, slicehost ]:
+  all_nodes.extend(provider.list_nodes())
+
+print all_nodes
+# [ &lt;Node: provider=Amazon, status=RUNNING, name=bob, ip=1.2.3.4.5&gt;,
+# &lt;Node: provider=Slicehost, status=REBOOT, name=korine, ip=6.7.8.9.10&gt;, ... ]
+
+node = all_nodes[0]
+print node.destroy()
+# &lt;Node: provider=Amazon, status=TERMINATED, name=bob, ip=1.2.3.4.5&gt;
+</code>
       <h2>installation</h2>
       <p>Currently libcloud is only available via git. To pull the repository please run:</p>
       <code>git clone git://github.com/cloudkick/libcloud.git</code>
