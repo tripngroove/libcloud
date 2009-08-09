@@ -47,11 +47,12 @@ class SlicehostConnection(ConnectionKey):
     host = 'api.slicehost.com'
     responseCls = SlicehostResponse
 
-    def default_headers(self, headers):
+    def add_default_headers(self, headers):
         headers['Authorization'] = ('Basic %s'
                               % (base64.b64encode('%s:' % self.key)))
         return headers
     
+
 class SlicehostNodeDriver(NodeDriver):
 
     connectionCls = SlicehostConnection
