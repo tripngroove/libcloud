@@ -17,6 +17,23 @@ from cStringIO import StringIO
 from urllib2 import urlparse
 
 
+class multipleresponse(object):
+    """
+    A decorator that allows MockHttp objects to return multi responses
+    """
+    count = 0
+    func = None
+
+    def __init__(self, f):
+        self.func = f
+
+    def __call__(self, *args, **kwargs):
+        ret = self.func(self.func.__class__, *args, **kwargs)
+        response = ret[self.count]
+        self.count = self.count + 1
+        return response
+
+
 class MockResponse(object):
     """
     A mock HTTPResponse
@@ -65,12 +82,23 @@ class MockHttp(object):
     200
     >>> response.getheaders()
     [('X-Foo', 'libcloud')]
+    >>> MockHttp.type = 'fail'
+    >>> mock.request('GET', '/example/')
+    >>> response = mock.getresponse()
+    >>> response.body.read()
+    'Oh Noes!'
+    >>> response.status
+    403
+    >>> response.getheaders()
+    [('X-Foo', 'fail')]
 
     """
     responseCls = MockResponse
     host = None
     port = None
     response = None
+
+    type = None
 
     def __init__(self, host, port, *args, **kwargs):
         self.host = host
@@ -81,7 +109,10 @@ class MockHttp(object):
         path = urlparse.urlparse(url)[2]
         if path.endswith('/'):
             path = path[:-1]
-        meth = getattr(self, path.replace('/','_').replace('.', '_'))
+        if self.type:
+            meth = getattr(self, '%s_%s' % (path.replace('/','_').replace('.', '_'), self.type) )
+        else:
+            meth = getattr(self, (path.replace('/','_').replace('.', '_')))
         status, body, headers, reason = meth(method, url, body, headers)
         self.response = self.responseCls(status, body, headers, reason)
 
@@ -104,6 +135,11 @@ class MockHttp(object):
         """
         return (httplib.OK, 'Hello World!', {'X-Foo': 'libcloud'},
                 httplib.responses[httplib.OK])
+
+    def _example_fail(self, method, url, body, headers):
+        return (httplib.FORBIDDEN, 'Oh Noes!', {'X-Foo': 'fail'},
+                httplib.responses[httplib.FORBIDDEN])
+
 
 
 if __name__ == "__main__":

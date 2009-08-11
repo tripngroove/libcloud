@@ -12,180 +12,202 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from libcloud.types import NodeState, Node, InvalidCredsException
+from libcloud.types import NodeState, InvalidCredsException, Provider
+from libcloud.base import ConnectionUserAndKey, Response, NodeDriver, Node, NodeSize, NodeImage
 from libcloud.interface import INodeDriver
-from zope.interface import implements
-import httplib
-import urlparse
-import hashlib
-from xml.etree import ElementTree as ET
 
-AUTH_HOST = 'auth.api.rackspacecloud.com'
-API_VERSION = 'v1.0'
+from zope.interface import implements
+
+import urlparse
+
+from xml.etree import ElementTree as ET
+from xml.parsers.expat import ExpatError
+
 NAMESPACE = 'http://docs.rackspacecloud.com/servers/api/v1.0'
 
-class RackspaceConnection(object):
-    def __init__(self, user, key):
-        self.user = user
-        self.key = key
-        self.token = None
-        self.endpoint = None
+class RackspaceResponse(Response):
 
-    def _authenticate(self):
-        self.auth = httplib.HTTPSConnection("%s:%d" % (AUTH_HOST, 443))
-        self.auth.request('GET', '/%s' % API_VERSION,
-                          headers={ 'X-Auth-User': self.user,
-                                    'X-Auth-Key': self.key })
-        ret = self.auth.getresponse()
-        self.token = ret.getheader('x-auth-token')
-        self.endpoint = ret.getheader('x-server-management-url')
+    def success(self):
+        i = int(self.status)
+        return i >= 200 and i <= 299
 
-        if not self.token or not self.endpoint:
-            raise InvalidCredsException()
+    def parse_body(self):
+        if not self.body:
+            return None
+        return ET.XML(self.body)
 
-        scheme, server, self.path, param, query, fragment = (
-            urlparse.urlparse(self.endpoint)
-        )
-        self.api = httplib.HTTPSConnection("%s:%d" % (server, 443))
-
-    def _headers(self):
-        if not self.token:
-            self._authenticate()
-
-        return { 'X-Auth-Token': self.token,
-                 'Accept': 'application/xml' }
-
-    def make_request(self, path, data='', method='GET'):
-        if not self.token or not self.endpoint:
-            self._authenticate()
-
-        self.api.request(method, '%s/%s' % (self.path, path),
-                         headers=self._headers())
-        return self.api.getresponse()
-
-    def list_servers(self):
-        return Response(self.make_request('servers/detail'))
-    
-    def action(self, id, verb, params):
-        uri = 'servers/%s/action' % id
-        data = ('<%s xmlns="%s" %s/>'
-                % (verb, NAMESPACE,
-                   ' '.join(['%s="%s"' % item for item in params.items()])))
-        return Response(self.make_request(uri, data=data, method='POST'))
-
-    def delete(self, id):
-        uri = 'servers/%s' % id
-        return Response(self.make_request(uri, method='DELETE'))
-
-class Response(object):
-    def __init__(self, http_response):
-        self.http_response = http_response
-        self.http_xml = http_response.read()
-
-    def is_error(self):
-        return self.http_response.status != 202
-
-    def get_error(self):
-        """Gets error in the following manner:
-
-        - Checks for <{NAMESPACE}message> elem in body
-        - Reads against response code
-        - Gives up
-        """
-        tag = "{%s}message" % NAMESPACE;
-        info = [ err.text
-                 for err in
-                 ET.XML(self.http_xml).findall(tag) ]
-        if info:
+    def parse_error(self):
+        # TODO: fixup, Rackspace only uses response codes really!
+        try:
+            object = ET.XML(self.body)
             return "; ".join([ err.text
                                for err in
-                               ET.XML(self.http_xml).findall(tag) ])
-        else:
-            reasons = { 400: "cloudServersFault/badRequest",
-                        401: "unauthorized",
-                        500: "cloudServersFault",
-                        503: "serviceUnavailable",
-                        404: "itemNotFound",
-                        409: "buildInProgress",
-                        413: "overLimit" }
-            if self.http_response.status in reasons:
-                return reasons[self.http_response.status]
-            else:
-                return None
+                               object.findall('error') ])
+        except ExpatError:
+            return self.body
 
-class RackspaceNodeDriver(object):
 
-    implements(INodeDriver)
+class RackspaceConnection(ConnectionUserAndKey):
+    api_version = 'v1.0'
+    auth_host = 'auth.api.rackspacecloud.com'
+    __host = None
+    path = None
+    token = None
 
-    def __init__(self, creds):
-        self.creds = creds
-        self.api = RackspaceConnection(creds.key, creds.secret)
+    responseCls = RackspaceResponse
+
+    def add_default_headers(self, headers):
+        headers['X-Auth-Token'] = self.token;
+        headers['Accept'] = 'application/xml'
+        return headers
+
+    @property
+    def host(self):
+        """
+        Rackspace uses a separate host for API calls which is only provided
+        after an initial authentication request. If we haven't made that
+        request yet, do it here. Otherwise, just return the management host.
+
+        TODO: Fixup for when our token expires (!!!)
+        """
+        if not self.__host:
+            # Initial connection used for authentication
+            conn = self.conn_classes[self.secure](self.auth_host, self.port[self.secure])
+            conn.request(method='GET', url='/%s' % self.api_version,
+                                           headers={'X-Auth-User': self.user_id,
+                                                    'X-Auth-Key': self.key})
+            resp = conn.getresponse()
+            headers = dict(resp.getheaders())
+            try:
+                self.token = headers['x-auth-token']
+                endpoint = headers['x-server-management-url']
+            except KeyError:
+                raise InvalidCredsException()
+
+            scheme, server, self.path, param, query, fragment = (
+                urlparse.urlparse(endpoint)
+            )
+            if scheme is "https" and self.secure is not 1:
+                # TODO: Custom exception (?)
+                raise InvalidCredsException()
+
+            # Set host to where we want to make further requests to; close auth conn
+            self.__host = server
+            conn.close()
+
+        return self.__host
+
+    def request(self, action, params={}, data='', headers={}, method='GET'):
+        # Due to first-run authentication request, we may not have a path
+        if self.path:
+            action = self.path + action
+        if method == "POST":
+            headers = {'Content-Type': 'application/xml; charset=UTF-8'}
+        return super(RackspaceConnection, self).request(action=action,
+                                                        params=params, data=data,
+                                                        method=method, headers=headers)
+        
+
+class RackspaceNodeDriver(NodeDriver):
+
+    connectionCls = RackspaceConnection
+    type = Provider.RACKSPACE
+    name = 'Rackspace'
+
+    NODE_STATE_MAP = {  'BUILD': NodeState.PENDING,
+                        'ACTIVE': NodeState.RUNNING,
+                        'SUSPENDED': NodeState.TERMINATED,
+                        'QUEUE_RESIZE': NodeState.PENDING,
+                        'PREP_RESIZE': NodeState.PENDING,
+                        'RESCUE': NodeState.PENDING,
+                        'REBUILD': NodeState.PENDING,
+                        'REBOOT': NodeState.REBOOTING,
+                        'HARD_REBOOT': NodeState.REBOOTING}
+
+    def list_nodes(self):
+        return self.to_nodes(self.connection.request('/servers/detail').object)
+
+    def list_sizes(self):
+        return self.to_sizes(self.connection.request('/flavors/detail').object)
+
+    def list_images(self):
+        return self.to_images(self.connection.request('/images/detail').object)
+
+    def create_node(self, name, image, size, **kwargs):
+        body = """<server   xmlns="%s"
+                            name="%s"
+                            imageId="%s"
+                            flavorId="%s">
+                </server>
+                """ % (NAMESPACE, name, image.id, size.id)
+        resp = self.connection.request("/servers", method='POST', data=body)
+        return self._to_node(resp.object)
+
+    def reboot_node(self, node):
+        # TODO: Hard Reboots should be supported too!
+        resp = self._node_action(node, ['reboot', ('type', 'SOFT')])
+        return resp.status == 202
+
+    def destroy_node(self, node):
+        uri = '/servers/%s' % (node.id)
+        resp = self.connection.request(uri, method='DELETE')
+        return resp.status == 202
+
+    def _node_action(self, node, body):
+        if isinstance(body, list):
+            attr = ' '.join(['%s="%s"' % (item[0], item[1]) for item in body[1:]])
+            body = '<%s xmlns="%s" %s/>' % (body[0], NAMESPACE, attr)
+        uri = '/servers/%s/action' % (node.id)
+        resp = self.connection.request(uri, method='POST', data=body)
+        return resp
+
+    def to_nodes(self, object):
+        node_elements = self._findall(object, 'server')
+        return [ self._to_node(el) for el in node_elements ]
 
     def _fixxpath(self, xpath):
         # ElementTree wants namespaces in its xpaths, so here we add them.
         return "/".join(["{%s}%s" % (NAMESPACE, e) for e in xpath.split("/")])
 
-    def _findtext(self, element, xpath):
-        return element.findtext(self._fixxpath(xpath))
+    def _findall(self, element, xpath):
+        return element.findall(self._fixxpath(xpath))
 
-    def _to_node(self, element):
-        states = { 'BUILD': NodeState.PENDING,
-                   'ACTIVE': NodeState.RUNNING,
-                   'SUSPENDED': NodeState.TERMINATED,
-                   'QUEUE_RESIZE': NodeState.PENDING,
-                   'PREP_RESIZE': NodeState.PENDING,
-                   'RESCUE': NodeState.PENDING,
-                   'REBUILD': NodeState.PENDING,
-                   'REBOOT': NodeState.REBOOTING,
-                   'HARD_REBOOT': NodeState.REBOOTING }
-
-        attribs = element.attrib
-        node_attrs = attribs
-
-        try:
-            state = states[attribs['status']]
-        except:
-            state = NodeState.UNKNOWN
-
-        n = Node(uuid=self.get_uuid(attribs['id']),
-                 name=attribs['name'],
-                 state=state,
-                 ipaddress=self._findtext(element, 
-                                          'metadata/addresses/public'),
-                 creds=self.creds,
-                 attrs=node_attrs)
+    def _to_node(self, el):
+        def get_ips(el):
+            return [ip.get('addr') for ip in el]
+        
+        public_ip = get_ips(self._findall(el, 
+                                          'addresses/public'))
+        private_ip = get_ips(self._findall(el, 
+                                          'addresses/private'))
+        n = Node(id=el.get('id'),
+                 name=el.get('name'),
+                 state=el.get('status'),
+                 public_ip=public_ip,
+                 private_ip=private_ip,
+                 driver=self.connection.driver)
         return n
 
-    def get_uuid(self, field):
-        hash_str = '%s:%d' % (field, self.creds.provider)
-        return hashlib.sha1(hash_str).hexdigest()
+    def to_sizes(self, object):
+        elements = self._findall(object, 'flavor')
+        return [ self._to_size(el) for el in elements ]
 
-    def list_nodes(self):
-        res = self.api.list_servers()
-        return [ self._to_node(el)
-                 for el
-                 in ET.XML(res.http_xml).findall(self._fixxpath('server')) ]
+    def _to_size(self, el):
+        s = NodeSize(id=el.get('id'),
+                     name=el.get('name'),
+                     ram=int(el.get('ram')),
+                     disk=int(el.get('disk')),
+                     bandwidth=None, # XXX: needs hardcode
+                     price=None, # XXX: needs hardcode,
+                     driver=self.connection.driver)
+        return s
 
-    def reboot_node(self, node):
-        """Reboot the node by passing in the node object"""
+    def to_images(self, object):
+        elements = self._findall(object, "image")
+        return [ self._to_image(el) for el in elements if el.get('status') == 'ACTIVE']
 
-        # 'hard' could bubble up as kwarg depending on how reboot_node 
-        # turns out. Defaulting to soft reboot.
-        hard = False
-        verb = 'reboot'
-        id = node.attrs['id']
-        params = {'type': 'HARD' if hard else 'SOFT'}
-
-        res = self.api.action(id, verb, params)
-        if res.is_error():
-            raise Exception(res.get_error())
-
-        return True
-
-    def destroy_node(self, node):
-        """Destroy node"""
-        res = self.api.delete(node.attrs['id'])
-        if res.is_error():
-            raise Exception(res.get_error())
-
-        return True
+    def _to_image(self, el):
+        i = NodeImage(id=el.get('id'),
+                     name=el.get('name'),
+                     driver=self.connection.driver)
+        return i;
