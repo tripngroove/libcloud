@@ -72,13 +72,15 @@ class RackspaceConnection(ConnectionUserAndKey):
         """
         if not self.__host:
             # Initial connection used for authentication
-            self.connect(self.auth_host)
-            resp = self.request(method='GET', action='/%s' % self.api_version,
+            conn = self.conn_classes[self.secure](self.auth_host, self.port[self.secure])
+            conn.request(method='GET', url='/%s' % self.api_version,
                                            headers={'X-Auth-User': self.user_id,
                                                     'X-Auth-Key': self.key})
+            resp = conn.getresponse()
+            headers = dict(resp.getheaders())
             try:
-                self.token = resp.headers['x-auth-token']
-                endpoint = resp.headers['x-server-management-url']
+                self.token = headers['x-auth-token']
+                endpoint = headers['x-server-management-url']
             except KeyError:
                 raise InvalidCredsException()
 
@@ -91,7 +93,7 @@ class RackspaceConnection(ConnectionUserAndKey):
 
             # Set host to where we want to make further requests to; close auth conn
             self.__host = server
-            self.connection.close()
+            conn.close()
 
         return self.__host
 
@@ -105,6 +107,7 @@ class RackspaceConnection(ConnectionUserAndKey):
                                                         params=params, data=data,
                                                         method=method, headers=headers)
         
+
 class RackspaceNodeDriver(NodeDriver):
 
     connectionCls = RackspaceConnection
