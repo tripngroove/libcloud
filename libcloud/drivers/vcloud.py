@@ -18,7 +18,13 @@ from libcloud.types import NodeState, InvalidCredsException
 from libcloud.base import Node, Response, ConnectionUserAndKey, NodeDriver, NodeSize, NodeImage
 
 import base64
+import httplib
+from urlparse import urlparse
 from xml.etree import ElementTree as ET
+from xml.parsers.expat import ExpatError
+
+def get_url_path(url):
+    return urlparse(url.strip()).path
 
 def fixxpath(root, xpath):
     """ElementTree wants namespaces in its xpaths, so here we add them."""
@@ -31,10 +37,17 @@ class VCloudResponse(Response):
     def parse_body(self):
         if not self.body:
             return None
-        return ET.XML(self.body)
+        try:
+            return ET.XML(self.body)
+        except ExpatError, e:
+            raise Exception("%s: %s" % (e, self.parse_error()))
 
     def parse_error(self):
         return self.body
+
+    def success(self):
+        return self.status in (httplib.OK, httplib.CREATED, 
+                               httplib.NO_CONTENT, httplib.ACCEPTED)
 
 class VCloudConnection(ConnectionUserAndKey):
 
@@ -42,13 +55,12 @@ class VCloudConnection(ConnectionUserAndKey):
     token = None
     host = None
 
-    @property
-    def hostingid(self):
-        return self.user_id.split('@')[1]
-
     def request(self, *args, **kwargs):
         self._get_auth_token()
         return super(VCloudConnection, self).request(*args, **kwargs)
+
+    def check_org(self):
+        self._get_auth_token() # the only way to get our org is by logging in.
 
     def _get_auth_token(self):
         if not self.token:
@@ -61,10 +73,14 @@ class VCloudConnection(ConnectionUserAndKey):
 
             resp = conn.getresponse()
             headers = dict(resp.getheaders())
+            body = ET.XML(resp.read())
+
             try:
                 self.token = headers['set-cookie']
             except KeyError:
                 raise InvalidCredsException()
+
+            self.driver.org = get_url_path(body.find(fixxpath(body, 'Org')).get('href'))
 
     def add_default_headers(self, headers):
         headers['Cookie'] = self.token
@@ -74,6 +90,8 @@ class VCloudNodeDriver(NodeDriver):
     type = Provider.VCLOUD
     name = "vCloud"
     connectionCls = VCloudConnection
+    org = None
+    _vdcs = None
 
     NODE_STATE_MAP = {'0': NodeState.PENDING,
                       '1': NodeState.PENDING,
@@ -82,8 +100,15 @@ class VCloudNodeDriver(NodeDriver):
                       '4': NodeState.RUNNING}
 
     @property
-    def hostingid(self):
-        return self.connection.hostingid
+    def vdcs(self):
+        if not self._vdcs:
+            self.connection.check_org() # make sure the org is set.
+            res = self.connection.request(self.org)
+            self._vdcs = [get_url_path(i.get('href'))
+                          for i in res.object.findall(fixxpath(res.object, "Link"))
+                          if i.get('type') == 'application/vnd.vmware.vcloud.vdc+xml']
+            
+        return self._vdcs
 
     def _to_image(self, image):
         image = NodeImage(id=image.get('href'),
@@ -103,27 +128,48 @@ class VCloudNodeDriver(NodeDriver):
                     driver=self.connection.driver)
 
         return node
+    
+    def destroy_node(self, node):
+        self.connection.request('/vapp/%s/power/action/poweroff' % node.id,
+                                method='POST') 
+        try:
+            res = self.connection.request('/vapp/%s/action/undeploy' % node.id,
+                                          method='POST')
+        except ExpatError: # the undeploy response is malformed XML atm. We can remove this whent he providers fix the problem.
+            return True
+
+        return res.status == 202
+
+    def reboot_node(self, node):
+        res = self.connection.request('/vapp/%s/power/action/reset' % node.id,
+                                      method='POST') 
+        return res.status == 204
 
     def list_nodes(self):
-        res = self.connection.request('/vdc/%s' % self.hostingid) 
-        elms = res.object.findall(fixxpath(res.object, "ResourceEntities/ResourceEntity"))
-        vapps = [i.get('name') 
-                    for i in elms
-                        if i.get('type') == 'application/vnd.vmware.vcloud.vApp+xml' and 
-                           i.get('name')]
         nodes = []
-        for vapp in vapps:
-            res = self.connection.request('/vApp/%s' % vapp)
-            nodes.append(self._to_node(vapp, res.object))
+        for vdc in self.vdcs:
+            res = self.connection.request(vdc) 
+            elms = res.object.findall(fixxpath(res.object, "ResourceEntities/ResourceEntity"))
+            vapps = [(i.get('name'), get_url_path(i.get('href')))
+                        for i in elms
+                            if i.get('type') == 'application/vnd.vmware.vcloud.vApp+xml' and 
+                               i.get('name')]
+
+            for vapp_name, vapp_href in vapps:
+                res = self.connection.request(vapp_href)
+                nodes.append(self._to_node(vapp_name, res.object))
 
         return nodes
 
     def list_images(self):
-        images = self.connection.request('/vdc/%s' % self.hostingid).object
-        res_ents = images.findall(fixxpath(images, "ResourceEntities/ResourceEntity"))
-        images = [self._to_image(i) 
-                    for i in res_ents 
-                        if i.get('type') == 'application/vnd.vmware.vcloud.vAppTemplate+xml']
+        images = []
+        for vdc in self.vdcs:
+            res = self.connection.request(vdc).object
+            res_ents = res.findall(fixxpath(res, "ResourceEntities/ResourceEntity"))
+            images += [self._to_image(i) 
+                        for i in res_ents 
+                            if i.get('type') == 'application/vnd.vmware.vcloud.vAppTemplate+xml']
+
         return images
 
 class HostingComConnection(VCloudConnection):

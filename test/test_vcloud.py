@@ -19,14 +19,14 @@ from libcloud.drivers.vcloud import VCloudNodeDriver
 from libcloud.base import Node, NodeImage, NodeSize
 from libcloud.types import NodeState
 
-from test import MockHttp
+from test import MockHttp, TestCaseMixin
 
 import httplib
 
 from secrets import HOSTINGCOM_USER, HOSTINGCOM_SECRET
 
 
-class VCloudTests(unittest.TestCase):
+class VCloudTests(unittest.TestCase, TestCaseMixin):
 
     def setUp(self):
        VCloudNodeDriver.connectionCls.host = "test"
@@ -35,37 +35,68 @@ class VCloudTests(unittest.TestCase):
        self.driver = VCloudNodeDriver('test@111111', HOSTINGCOM_SECRET)
 
     def test_list_images(self):
-        VCloudMockHttp.type = 'images'
         ret = self.driver.list_images()
         self.assertEqual(ret[0].id,'https://vcloud.safesecureweb.com/vAppTemplate/1')
         self.assertEqual(ret[-1].id,'https://vcloud.safesecureweb.com/vAppTemplate/4')
 
     def test_list_nodes(self):
-        VCloudMockHttp.type = 'list'
         ret = self.driver.list_nodes()
         self.assertEqual(ret[0].id, '197833')
         self.assertEqual(ret[0].state, NodeState.RUNNING)
 
+    def test_reboot_node(self):
+        node = self.driver.list_nodes()[0]
+        ret = self.driver.reboot_node(node)
+        self.assertTrue(ret)
+
+    def test_destroy_node(self):
+        node = self.driver.list_nodes()[0]
+        ret = self.driver.destroy_node(node)
+        self.assertTrue(ret)
 
 class VCloudMockHttp(MockHttp):
 
 
-    def _api_v0_8_login_images(self, method, url, body, headers):
+    def _api_v0_8_login(self, method, url, body, headers):
+        headers['set-cookie'] = 'vcloud-token=testtoken'
         body = """
-        """
-        headers = {'set-cookie': 'vcloud-token=testtoken'}
+        <OrgList xmlns="http://www.vmware.com/vcloud/v1"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Org href="https://services.vcloudexpress.terremark.com/api/v0.8/org/32" type="application/vnd.vmware.vcloud.org+xml" name="Org Name"/>
+        </OrgList>"""
         return (httplib.OK, body, headers, httplib.responses[httplib.OK])
 
-    def _api_v0_8_login_list(self, method, url, body, headers):
+    def _api_v0_8_org_32(self, method, url, body, headers):
         body = """
-        """
-        headers = {'set-cookie': 'vcloud-token=testtoken'}
+        <Org href=" https://services.vcloudexpress.terremark.com/api/v0.8/org/32" name="Org Name" xmlns="http://www.vmware.com/vcloud/v1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Link rel="down" href=" https://services.vcloudexpress.terremark.com/api/v0.8/vdc/111111" type="application/vnd.vmware.vcloud.vdc+xml" name="VDC Name"/>
+        <Link rel="down" href=" https://services.vcloudexpress.terremark.com/api/v0.8/vdc/1/catalog" type="application/vnd.vmware.vcloud.catalog+xml" name="Catalog Name"/>
+        <Link rel="down" href=" https://services.vcloudexpress.terremark.com/api/v0.8/tasksList/1" type="application/vnd.vmware.vcloud.tasksList+xml" name="Tasks List"/>
+        </Org>"""
         return (httplib.OK, body, headers, httplib.responses[httplib.OK])
 
-    def _vdc_111111_list(self, method, uri, body, headers):
-        return self._vdc_111111_images(method, uri, body, headers)
+    def _vapp_197833_power_action_poweroff(self, method, url, body, headers):
+        body = ''
+        return (httplib.NO_CONTENT, body, headers, httplib.responses[httplib.NO_CONTENT])
 
-    def _vApp_197833_list(self, method, uri, body, headers):
+    def _vapp_197833_power_action_reset(self, method, url, body, headers):
+        body = ''
+        return (httplib.NO_CONTENT, body, headers, httplib.responses[httplib.NO_CONTENT])
+
+    def _vapp_197833_action_undeploy(self, method, url, body, headers):
+        body = """
+<?xml version="1.0" encoding="UTF-8"?>
+<task xmlns="http://www.vmware.com/vcloud/task"
+    xmlns:common="http://www.vmware.com/vcloud/common"    xsi:schemaLocation="http://www.vmware.com/vcloud/task
+        https://vcloud.safesecureweb.com/ns/vcloud/task-1.0.xsd        http://www.vmware.com/vcloud/common
+        https://vcloud.safesecureweb.com/ns/vcloud/common-1.0.xsd    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    status="success" startTime="10/16/2009 7:52:48 AM">
+  <common:link rel="taskList:cancel" href="https://vcloud.safesecureweb.com/task/59049/action/cancel" />  <common:link rel="self" href="https://vcloud.safesecureweb.com/task/59049" type="application/vnd.vmware.vcloud.task+xml" /></task>"""
+        return (httplib.NO_CONTENT, body, headers, httplib.responses[httplib.NO_CONTENT])
+
+
+    def _vApp_197833(self, method, uri, body, headers):
         body = """<?xml version="1.0" encoding="UTF-8"?>
 <VApp href="https://vcloud.safesecureweb.com/vapp/197833"
     name="197833"
@@ -163,7 +194,7 @@ class VCloudMockHttp(MockHttp):
 </VApp>"""
         return (httplib.OK, body, {}, httplib.responses[httplib.OK])
 
-    def _vdc_111111_images(self, method, url, body, headers):
+    def _api_v0_8_vdc_111111(self, method, url, body, headers):
     
         body = """<?xml version="1.0" encoding="UTF-8"?>
 <Vdc
