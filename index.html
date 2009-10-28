@@ -124,24 +124,27 @@
       <p>The following example will list servers across Amazon EC2, Slicehost, and Rackspace Cloud Servers using the same API call. The servers will be represented in a standard Node object</p>
       <code class="python">from libcloud.types import Provider
 from libcloud.providers import get_driver
-
+ 
 EC2 = get_driver(Provider.EC2)
 Slicehost = get_driver(Provider.SLICEHOST)
-
-ec2 = EC2('access key id', 'secret key')
-slicehost = Slicehost('api key')
-
-all_nodes = []
-for provider in [ ec2, slicehost ]:
-  all_nodes.extend(provider.list_nodes())
-
-print all_nodes
+Rackspace = get_driver(Provider.RACKSPACE)
+ 
+drivers = [ EC2('access key id', 'secret key'),
+            Slicehost('api key'),
+            Rackspace('username', 'api key') ]
+ 
+nodes = [ driver.list_nodes() for driver in drivers ]
+ 
+print nodes
 # [ &lt;Node: provider=Amazon, status=RUNNING, name=bob, ip=1.2.3.4.5&gt;,
 # &lt;Node: provider=Slicehost, status=REBOOT, name=korine, ip=6.7.8.9.10&gt;, ... ]
 
-node = all_nodes[0]
-print node.destroy()
-# &lt;Node: provider=Amazon, status=TERMINATED, name=bob, ip=1.2.3.4.5&gt;
+ 
+# grab the node named "test"
+node = filter(lambda x: x.name == 'test', nodes)[0]
+ 
+# reboot "test"
+node.reboot()      
 </code>
       <h2>installation</h2>
       <p>Currently libcloud is only available via git. To pull the repository please run:</p>
