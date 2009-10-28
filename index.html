@@ -122,7 +122,11 @@
 
       <h2>example</h2>
       <p>The following example will list servers across Amazon EC2, Slicehost, and Rackspace Cloud Servers using the same API call. The servers will be represented in a standard Node object</p>
-      <code class="python">from libcloud.drivers import EC2, Slicehost
+      <code class="python">from libcloud.types import Provider
+from libcloud.providers import get_driver
+
+EC2 = get_driver(Provider.EC2)
+Slicehost = get_driver(Provider.SLICEHOST)
 
 ec2 = EC2('access key id', 'secret key')
 slicehost = Slicehost('api key')
