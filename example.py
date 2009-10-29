@@ -12,25 +12,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from libcloud.drivers import EC2, Slicehost, Rackspace
+from libcloud.types import Provider
+from libcloud.providers import get_driver
 
-ec2 = EC2('access key id', 'secret key')
-slicehost = Slicehost('api key')
-rackspace = Rackspace('username', 'api key')
+EC2 = get_driver(Provider.EC2)
+Slicehost = get_driver(Provider.SLICEHOST)
+Rackspace = get_driver(Provider.RACKSPACE)
 
-all_nodes = []
-for provider in [ ec2, slicehost, rackspace ]:
-  all_nodes.extend(provider.list_nodes())
+drivers = [ EC2('access key id', 'secret key'), 
+            Slicehost('api key'), 
+            Rackspace('username', 'api key') ]
 
-print all_nodes
-"""
-[ <Node: provider=Amazon, status=RUNNING, name=bob, ip=1.2.3.4.5>,
-<Node: provider=Slicehost, status=REBOOT, name=korine, ip=6.7.8.9.10>, ... ]
-"""
+nodes = [ driver.list_nodes() for driver in drivers ]
 
-node = all_nodes[0]
-print node.destroy()
-# <Node: provider=Amazon, status=TERMINATED, name=bob, ip=1.2.3.4.5>,
+print nodes
+# [ <Node: provider=Amazon, status=RUNNING, name=bob, ip=1.2.3.4.5>,
+# <Node: provider=Slicehost, status=REBOOT, name=korine, ip=6.7.8.9.10>, ... ]
 
-print slicehost.create_node(based_on=node)
-# <Node: provider=Slicehost, status=PENDING, name=bob, ip=None>,
+# grab the node named "test"
+node = filter(lambda x: x.name == 'test', nodes)[0]
+
+# reboot "test"
+node.reboot()
